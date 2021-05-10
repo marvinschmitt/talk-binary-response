@@ -1,4 +1,0 @@
-\beamer@sectionintoc {1}{Model}{3}{0}{1}
-\beamer@sectionintoc {2}{Implementation in \texttt {R}}{8}{0}{2}
-\beamer@sectionintoc {3}{Model Evaluation}{17}{0}{3}
-\beamer@sectionintoc {4}{Outlook}{28}{0}{4}

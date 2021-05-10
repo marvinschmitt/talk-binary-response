@@ -140,7 +140,7 @@ m3 = glm(vaccination_skeptic ~ iq * income, family=binomial('logit'))
 ```
 
 ## Toy Example
-The dataset `df`^[<www.github.com/marvinschmitt/talk-binary-response>] contains the yearly sick leave hours, number of tweets on Twitter, IQ, and hair length of $N=100$ employees along with their gender (binary: male/female) and whether they have ever suffered from depression (binary: yes/no):
+The dataset `df`^[www.github.com/marvinschmitt/talk-binary-response] contains the yearly sick leave hours, number of tweets on Twitter, IQ, and hair length of $N=100$ employees along with their gender (binary: male/female) and whether they have ever suffered from depression (binary: yes/no):
 
 ```{r load_df, include=FALSE}
 df = read.csv("df.csv", stringsAsFactors = TRUE)
@@ -467,7 +467,7 @@ legend("topleft", legend=c("Female", "Male", "x_dot"),
 ***
 
 - **Alternative:** Equip the odds ratio of $\beta$ with a confidence interval:
-  - 95\% CI: $[\exp(\hat{\beta}-1.96\hat{\sigma_{\beta}}), \exp(\hat{\beta}+1.96\hat{\sigma_{\beta}})]$
+  - 95\% CI: $[\exp(\hat{\beta}-1.96\hat{\sigma}_{\beta}), \exp(\hat{\beta}+1.96\hat{\sigma}_{\beta})]$
   - Invariant to the value of $\dot{x}$
   - Typically reported in clinical research papers.
 

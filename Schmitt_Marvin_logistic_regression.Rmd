@@ -1,0 +1,509 @@
+---
+title: "Binary Response and Logistic Regression"
+author: "Marvin Schmitt"
+date: "May 11, 2021"
+output:
+  beamer_presentation:
+    slide_level: 2
+    toc: yes
+    theme: Berlin
+  slidy_presentation: default
+  ioslides_presentation: default
+header-includes: \setbeamertemplate{footline}[]{}
+---
+
+```{r echo=FALSE} 
+knitr::knit_hooks$set(mysize = function(before, options, envir) { 
+  if (before) { 
+    return(options$size) 
+  } else { 
+    return("\\normalsize") 
+  } 
+}) 
+knitr::opts_chunk$set(mysize = TRUE, size = "\\tiny")
+```
+
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggplot2)
+library(latex2exp)
+library(ggpubr)
+library(tikzDevice)
+library(psych)
+library(ResourceSelection)
+library(faraway)
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+set.seed(42)
+```
+
+```{r generate_data, include=FALSE, echo=FALSE}
+##########
+# set coefficients
+alpha = 5
+beta1 = 4
+beta2 = 8
+beta3 = 1
+
+N = 100 #  N//2==0 !!!
+
+# Generate 100 subjects
+#A = rep(c(0,1), times=N/2) # Factor A
+A = sample(c(0,1), size = N, replace = TRUE, prob = c(0.9, 0.1))
+B = rep(c(0,1), each=N/2) # Factor B
+e = rnorm(N, 0, sd=4) # Random gaussian noise, with standard deviation of 4
+
+# Generate your data using the regression equation
+y1 = alpha + beta1*A + beta2*B + beta3*A*B + e
+y2 = alpha/2 + beta1*B*A + beta2*A + beta3*B + 0.5*e
+y3 = rnorm(N, 100, 5) - y1 + 0.05*y2**2 + 1.5*e
+y4 = 5 + rnorm(N, (1-B) * 40, 8)
+
+
+# Join the variables in a data frame
+data = data.frame(
+  ID = 1:N, 
+  depr = as.factor(A), 
+  gender = as.factor(B), 
+  avg_sickhours = pmax(y1, 0) %>% round(1),
+  n_tweets = pmax(y2, 0) %>% round(0),
+  iq = pmax(y3, 0) %>% round(0),
+  hairlength = pmax(y4, 0) %>% round(1)
+)
+
+levels(data$depr) = c("no", "yes")
+levels(data$gender) = c("female", "male")
+
+
+write.csv(data, "df.csv", row.names = FALSE)
+
+```
+
+# Model
+## Binary Response Data
+- **General setting:** $x_i\in\mathbb{R}^n, y_i\in\{0,1\}$
+- **Examples:**
+  - Stimulus discrimination tasks
+    - Shooter paradigm
+    - Just noticeable difference in color perception
+  - Mortality
+    - *Is regular physical exercise life extending?*
+    - *What are risk factors for severe COVID-19 symptoms?*
+  - Performance assessment
+    - Student assessment tests
+    - Exam design: modeling task difficulty
+
+## Estimation
+**Basic idea:** predict probability for class 1 as $P(Y=1)=\dfrac{\exp(\eta)}{1+\exp(\eta)}$ with $\eta=\beta_0+\beta_1x_1+\ldots +\beta_kx_k$
+
+- Underlying linear model $\eta_i = \beta_0+\sum\limits_{j=1}^k\beta_jx_j$ that is plugged into the logistic function to obtain $P(Y=1)\in[0, 1]$ and $P(Y=1)+P(Y\neq1)=1$.
+
+## Likelihood
+Likelihood $\mathcal{L}(\beta|x_1,\ldots,x_n)=\prod_{i=1}^n \mathcal{L}_i(\beta|x_i)$
+$$\begin{aligned}
+  \mathit{l}(\beta|x_1,\ldots,x_n)& =\sum_{i=1}^n l_i(\beta|x_i)\\
+  &=\sum (1-y_i)\log(1-p(x_i;\beta)) + y_i\log p(x_i;\beta)\\
+  &=\sum y_i\log\dfrac{p(x_i;\beta)}{1-p(x_i;\beta)}+\log(1-p(x_i;\beta))\\
+  &=\sum y_ix_i\beta - \log(1+\exp(x_i\beta))\\
+  &=\sum_{i=1}^ny_i\eta_i-\log(1+\exp(\eta))
+\end{aligned}$$
+
+- Maximize log-likelihood $l=\sum_{i=1}^ny_i\eta_i-\log(1+\exp(\eta))=:\mathtt{LL}$
+
+## Inference
+- **Data format**
+  - The criterion must be coded as `0/1` or as `factor`.
+  - Predictors must be metric or dummy-coded
+- **Interpretation**
+  - Odds ratio for predictor $x_j$ is equal to $\exp(\beta_j)$
+  - Odds ratio $OR_j$ quantifies how the odds $\frac{P(Y=1)}{P(Y=0)}$ change when $x_j$ increases by 1 unit.
+
+# Implementation in `R`
+## Syntax
+**General syntax**
+
+- Command `glm()` (generalized linear model)
+- Formula syntax:
+  - `y~x1+x2+x3` (no interactions)
+  - `y~x1*x2` (interactions)
+  - `y~x1+x2+x3+x1:x2` (selected interactions)
+- Must provide a `link` function to `glm()` through the `family` parameter (cf. section [Other link functions](#other-link-functions))
+  - For logistic regression, we use `family=binomial('logit')`.
+
+**Examples**
+```{r, eval=FALSE, echo=TRUE, error=FALSE, warning=FALSE, message=FALSE}
+m1 = glm(correct_response ~ iq + math_skill, data=df, family=binomial('logit'))
+m2 = glm(fatal_accident ~ bmi + risk_seeking + gender, family=binomial('logit'))
+m3 = glm(vaccination_skeptic ~ iq * income, family=binomial('logit'))
+```
+
+## Toy Example
+The dataset `df`^[<www.github.com/marvinschmitt/talk-binary-response>] contains the yearly sick leave hours, number of tweets on Twitter, IQ, and hair length of $N=100$ employees along with their gender (binary: male/female) and whether they have ever suffered from depression (binary: yes/no):
+
+```{r load_df, include=FALSE}
+df = read.csv("df.csv", stringsAsFactors = TRUE)
+```
+
+```{r}
+df %>% slice(sample(nrow(df))) %>% head(5)
+table(df$gender)
+```
+
+***
+
+We define `gender` as criterion and `avg_sickhours` as predictor. The `logit` link function leads to a logistic regression. The output's coefficients correspond to $\beta_0,\ldots,\beta_k$.
+
+```{r echo=TRUE}
+m = glm(gender ~ avg_sickhours, data = df, family = binomial('logit'))
+m$coefficients
+```
+```{r echo=FALSE}
+beta_0 = m$coefficients[1] %>% round(2)
+beta_1 = m$coefficients[2] %>% round(2)
+```
+
+- We can calculate $\eta$ from the underlying linear model: $\eta= `r beta_0` + `r beta_1` x_1$
+- Thus, the criterion estimate is: 
+$\hat{P}(Y=\text{male})=\dfrac{\exp(\overbrace{`r beta_0` + `r beta_1` x_1)}^{\eta}}{1+\exp(\underbrace{`r beta_0` + `r beta_1` x_1)}_{\eta}}$
+- The odds for `gender=m` are increased by the factor $\exp(`r beta_1`)=`r exp(beta_1) %>% round(2)`$ per additional sick leave hour.
+
+***
+
+```{r, label = 'TOY_LOG_PLOT', fig.cap='Plot: Logistic Regression Toy Example', echo=FALSE}
+x = df$avg_sickhours
+eta = predict(m, type = 'link')
+y_hat = predict(m, type = 'response')
+
+ETA_AXIS_COL = '#d6ae01'
+
+plot(df$avg_sickhours, y_hat, pch = 20,
+     col=ifelse(df$gender=="female", 'orange', 'blue'),
+     ylab = "Gender Estimate",
+     xlab = "Average Sickhours",
+     main = "Gender Estimate by Average Sickhours"
+)
+
+axis(1, seq(min(x), max(x), length.out=5), 
+     labels=seq(min(eta), max(eta), length.out=5) %>% round(1), line=1, 
+     col=ETA_AXIS_COL, col.ticks=ETA_AXIS_COL, col.axis=ETA_AXIS_COL)
+mtext("eta", 1, line=1, at=-1, col=ETA_AXIS_COL)
+
+legend("topleft", legend=c("Female", "Male"),
+       col=c("orange", "blue"), pch=16)
+abline(h = 0, col="gray")
+abline(h = 0.5, col="gray", lty=2)
+abline(h = 1, col="gray")
+abline(v = mean(x), col="gray", lty=2)
+
+```
+
+***
+**Predictors:** Avg. sick hours ($x_1$), Number of tweets ($x_2$)
+
+```{r}
+m = glm(gender ~ avg_sickhours + n_tweets, data = df, family = binomial('logit'))
+m$coefficients
+```
+```{r, echo=FALSE}
+beta = m$coefficients %>% round(2)
+```
+
+- $\eta= `r beta[1]` + `r beta[2]` x_1 + `r beta[3]` x_2$
+
+```{r, echo=FALSE, fig.height=6}
+eta = predict(m, type = 'link')
+y_hat = predict(m, type = 'response')
+
+plot(eta, y_hat, pch = 20,
+     col=ifelse(df$gender=="female", 'orange', 'blue'),
+     ylab = "Gender Estimate",
+     xlab = "eta",
+     main = "Gender Estimate by Average Sickhours and number of tweets"
+)
+
+legend("topleft", legend=c("Female", "Male"),
+       col=c("orange", "blue"), pch=16)
+abline(h = 0, col="gray")
+abline(h = 0.5, col="gray", lty=2)
+abline(h = 1, col="gray")
+abline(v = 0, col="gray", lty=2)
+
+```
+
+***
+
+**Predictors:** Avg. sick hours ($x_1$), Number of tweets ($x_2$), IQ ($x_3$)
+
+```{r}
+m = glm(gender ~ avg_sickhours + n_tweets + iq, data = df, family = binomial('logit'))
+m$coefficients
+```
+```{r, echo=FALSE}
+beta = m$coefficients %>% round(2)
+```
+
+- $\eta= `r beta[1]` + `r beta[2]` x_1 + `r beta[3]` x_2 + `r beta[4]` x_3$
+
+- Note the output `Warning: glm.fit: algorithm did not converge`
+  - Issue: Data is linearly separable (cf. section [Issue: Linear Separability](#issue-linear-separability))
+  - See the plot (next slide)
+
+***
+
+```{r, echo=FALSE, fig.height=6}
+eta = predict(m, type = 'link')
+y_hat = predict(m, type = 'response')
+
+plot(eta, y_hat, pch = 20,
+     col=ifelse(df$gender=="female", 'orange', 'blue'),
+     ylab = "Gender Estimate",
+     xlab = "eta",
+     main = "Gender Estimate by Average Sickhours, number of tweets, and IQ"
+)
+
+legend("topleft", legend=c("Female", "Male"),
+       col=c("orange", "blue"), pch=16)
+abline(h = 0, col="gray")
+abline(h = 0.5, col="gray", lty=2)
+abline(h = 1, col="gray")
+abline(v = 0, col="gray", lty=2)
+```
+
+***
+
+**Predictors:** Avg. sick hours ($x_1$), Hairlength ($x_2$)
+
+```{r}
+m = glm(gender ~ avg_sickhours + hairlength, data = df, family = binomial('logit'))
+```
+
+```{r, echo=FALSE, out.width = '700%', out.height='70%'}
+plot(df$avg_sickhours, df$hairlength, 
+     col=ifelse(df$gender=='male', 'blue', 'orange'),
+     xlab="Average sick hours", ylab="Hairlength"
+)
+legend("topright", legend=c("Female", "Male"),
+       col=c("orange", "blue"), pch=16)
+```
+
+
+# Model Evaluation
+
+## Logarithmic Scoring
+- Basic evaluation of predicted probabilities:
+  - For $Y_{true}=1$, the predicted probability $\hat{P}(Y=1)$ should be close to 1.
+  - For $Y_{true}=0$, the predicted probability $\hat{P}(Y=1)$ should be close to 0.
+- Compute $\mathtt{logScore}=Y_i\ln(\hat{Y}_i)+(1-Y_i)\ln(1-\hat{Y}_i)$
+  - $=\ln(\hat{Y_i}) \quad\text{if}\quad Y_i=1$
+  - $=\ln(1-\hat{Y_i}) \quad\text{if}\quad Y_i=0$
+
+## Model Selection
+- Model selection aims at selecting a model $M_i$ from a set of candidate models $M_1,\ldots,M_m$.
+- The choice depends on the selection criterion and the 
+- For a model *M* with *k* parameters, the **Akaike-Information-Criterion** is defined as
+
+$$AIC_M=-2\log L_M+2k$$
+- `R` provides the `step()` function for stepwise selection from a set of models^[stepwise selection is not an ideal selection technique. Contemporary alternative: regularized methods].
+  - The `step()` function uses the $AIC$ as selection criterion for logistic regression models.
+
+***
+
+```{r echo=FALSE, include=FALSE}
+data(wcgs, package='faraway')
+wcgs %>% drop_na() %>% slice(sample(nrow(wcgs), 500)) -> chd_data
+```
+
+```{r}
+m0 = glm(chd~1, data=chd_data, family=binomial('logit'))
+m1 = step(m0, direction='both', trace=0,
+          scope='~cigs+chol+weight+age')
+summary(m1)
+```
+
+## Likelihood Ratio Test
+- We can test competing nested models with the **Likelihood Ratio (LR) Test**
+- Small model $M_1$ with $k_1$ parameters, Large model $M_2$ with $k_2$ parameters
+- The difference of log-likelihoods is $\chi^2$ distributed:
+  - Test statistic $G^2=-2LL_{M_1} - (-2LL_{M_2}) \sim \chi^2(df=k_2-k_1)$
+  - If $p<.05$, the larger model improves model fit.
+- Implementation in `R` for example with `anova([models], test='Chisq')`
+
+***
+
+```{r, include=FALSE, echo=FALSE}
+m0 = glm(chd~1, data=chd_data, family=binomial('logit'))
+m1 = glm(chd~age, data=chd_data, family=binomial('logit'))
+m2 = glm(chd~age+cigs, data=chd_data, family=binomial('logit'))
+m3 = glm(chd~age+cigs+chol, data=chd_data, family=binomial('logit'))
+m4 = glm(chd~age+cigs+chol+height, data=chd_data, family=binomial('logit'))
+```
+
+```{r}
+anova(m0, m1, m2, m3, m4, test="Chisq")
+```
+
+## Hosmer and Lemeshow Goodness-of-fit test
+- Approach of the HL test:
+  - Partition the model population space into bins (*risk decentiles*)
+  - Compare observed relative bin counts with predicted relative bin counts
+  - Test statistic follows a $\chi^2$ distribution
+- Interpretation
+  - $p<.05$ indicates a systematic deviance between observed and predicted bin counts.
+- Reasons for a bad fit
+  - Nonlinear influence of predictors on $\eta$ 
+    - Solution: Polynomial logistic regression
+    - e.g. $\eta=\beta_0+\beta_{11}x_1+\beta_{12}x_1^2+\ldots+\beta_{1p}x_1^p+\beta_{21}x_2+\ldots+\beta_{kp}x_k^p$
+  - Interaction between predictors 
+    - Solution: Allow and analyze interactions (`y~x1*x2`).
+  
+***
+
+```{r}
+df$gender01 = as.numeric(df$gender)-1  # recode to 0/1 for HL-test
+m = glm(gender01 ~ avg_sickhours, data=df, family=binomial('logit'))
+y_hat = predict(m, type="response")
+hoslem.test(df$gender01, y_hat)  # default: g=10 bins
+hoslem.test(df$gender01, y_hat, g=5)  # g=5 bins
+```
+
+
+## Effect size
+
+**McFadden's $\rho^2$**
+
+- **Problem:** We cannot calculate the explained variance $R^2$
+- **Approach:** Calculate McFadden's $\rho^2$ with the log-likelihood of the full model `m1` and the log-likelihood of the null model `m0` without predictors. 
+- **Optional:** Include a correction for the number of predictors $k$.
+- **Formula:** $\rho^2=1-\dfrac{\ln(L_1)\overbrace{-k}^{\text{correction}}}{\ln(L_0)}$
+
+```{r}
+m0 = glm(gender ~ 1,             data=df, family=binomial('logit'))
+m1 = glm(gender ~ avg_sickhours, data=df, family=binomial('logit'))
+K = length(m1$coefficients) - 1 # number of predictors
+as.numeric(1 -  logLik(m1)   /logLik(m0)) %>% round(3)
+as.numeric(1 - (logLik(m1)-K)/logLik(m0)) %>% round(3)
+```
+
+***
+
+**Nagelkerke's $R^2$**
+
+- Another approach to compute an analogon to $R^2$ is Nagelkerke's (pseudo-) $R^2$:
+
+```{r}
+m = glm(gender ~ avg_sickhours, data=df, family=binomial('logit'))
+N = nrow(df)
+(1-exp((m$dev-m$null)/N))/(1-exp(-m$null/N))
+```
+
+
+## Issue: Linear Separability{#issue-linear-separability}
+
+- Linear separability of the data causes convergence issues.
+
+```{r echo=FALSE, include=FALSE}
+m = glm(gender ~ avg_sickhours + hairlength, data = df, family = binomial('logit'))
+```
+
+```{r echo=FALSE, out.height='50%', out.width='50%'}
+plot(df$avg_sickhours, df$hairlength, 
+     col=ifelse(df$gender=='male', 'blue', 'orange'),
+     xlab="Average sick hours", ylab="Hairlength"
+)
+legend("topright", legend=c("Female", "Male"),
+       col=c("orange", "blue"), pch=16)
+beta=m$coefficients
+abline(a=beta[1]/beta[2], b=-beta[3]/beta[2])
+``` 
+
+- Unstable estimates of the parameters and their standard errors.
+- Alternative: *Exact logistic regression*
+
+# Outlook
+
+## Predictions
+- Given a new input $\dot{x}$, the prediction on the linear predictor is $\hat{\eta}=\dot{x}\hat{\beta}$.
+- This prediction $\eta$ can be equipped with a confidence interval.
+- To obtain a probability confidence interval, $\hat{\eta}$ can be transformed with the well-known inverse link function: $\hat{p}=\dfrac{\exp(\eta)}{1+\exp(\eta)}$
+
+```{r}
+m = glm(gender~avg_sickhours, data=df, family=binomial('logit'))
+pred = predict(m,newdata=data.frame(avg_sickhours=10),se=T)
+(pred_ci = c(pred$fit-1.96*pred$se.fit, pred$fit+1.96*pred$se.fit) %>% ilogit())
+```
+
+***
+```{r echo=FALSE}
+x_dot = c(2, 5, 8, 10, 12, 15, 18, 20)
+pred = predict(m,newdata=data.frame(avg_sickhours=x_dot),se=T)
+pred_ci_lower = (pred$fit-1.96*pred$se.fit) %>% ilogit()
+pred_ci_upper = (pred$fit+1.96*pred$se.fit) %>% ilogit()
+
+y_hat = predict(m, type = 'response')
+
+ETA_AXIS_COL = '#d6ae01'
+
+plot(df$avg_sickhours, y_hat, pch = 20,
+     col=ifelse(df$gender=="female", 'orange', 'blue'),
+     ylab = "Gender Estimate",
+     xlab = "Average Sickhours",
+     main = "Gender Estimate by Average Sickhours"
+)
+
+
+abline(h = 0, col="gray")
+abline(h = 0.5, col="gray", lty=2)
+abline(h = 1, col="gray")
+abline(v=x_dot, col="red", lty=3)
+for (i in 1:length(x_dot)){
+  lines(c(x_dot[i], x_dot[i]), c(pred_ci_lower[i], pred_ci_upper[i]), col="red", lwd=4)
+}
+legend("topleft", legend=c("Female", "Male", "x_dot"),
+       col=c("orange", "blue", "red"), pch=16)
+```
+
+***
+
+- **Alternative:** Equip the odds ratio of $\beta$ with a confidence interval:
+  - 95\% CI: $[\exp(\hat{\beta}-1.96\hat{\sigma_{\beta}}), \exp(\hat{\beta}+1.96\hat{\sigma_{\beta}})]$
+  - Invariant to the value of $\dot{x}$
+  - Typically reported in clinical research papers.
+
+```{r}
+m = glm(gender~avg_sickhours, data=df, family=binomial('logit'))
+pred = predict(m,newdata=data.frame(avg_sickhours=10),se=T)
+c(exp(pred$fit-1.96*pred$se.fit), exp(pred$fit+1.96*pred$se.fit))
+```
+
+## Other link functions{#other-link-functions}
+
+```{r, echo=TRUE, results=FALSE, warning=FALSE}
+mlogit    = glm(gender ~ avg_sickhours, data = df, family = binomial(link='logit'))
+mprobit   = glm(gender ~ avg_sickhours, data = df, family = binomial(link='probit'))
+mcloglog  = glm(gender ~ avg_sickhours, data = df, family = binomial(link='cloglog'))
+mcauchit  = glm(gender ~ avg_sickhours, data = df, family = binomial(link='cauchit'))
+```
+
+
+```{r, echo=FALSE, fig.cap='Different link functions', fig.height=4}
+x <- seq(0,23,0.2)
+y_hat <- sapply(list(mlogit,mprobit,mcloglog,mcauchit), function(m) predict(m, data.frame(avg_sickhours=x), type="response"))
+colnames(y_hat) <- c("logit","probit","cloglog","cauchit")
+y_hat <- data.frame(x, y_hat)
+mpv <- gather(y_hat, link, probability, -x)
+ggplot(mpv, aes(x=x,y=probability,color=link))+
+  geom_line() +
+  labs(x="Average sickhours", y="Gender Estimate")
+```
+
+***
+
+**How to choose an appropriate link function?**
+
+- Usually, most observed data lies in the center of the distribution.
+- Different link functions are typically similar in the center but differ in the **tails**.
+- **Approach:** Select the link function based on *theoretical assumptions*, *experience*, and *domain expertise*.
+
+## Questions?

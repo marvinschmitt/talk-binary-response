@@ -1,0 +1,19 @@
+\frametitle{Other link functions}
+\protect\hypertarget{other-link-functions}{}
+
+\tiny
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{mlogit    =}\StringTok{ }\KeywordTok{glm}\NormalTok{(gender }\OperatorTok{~}\StringTok{ }\NormalTok{avg_sickhours, }\DataTypeTok{data =}\NormalTok{ df, }\DataTypeTok{family =} \KeywordTok{binomial}\NormalTok{(}\DataTypeTok{link=}\StringTok{'logit'}\NormalTok{))}
+\NormalTok{mprobit   =}\StringTok{ }\KeywordTok{glm}\NormalTok{(gender }\OperatorTok{~}\StringTok{ }\NormalTok{avg_sickhours, }\DataTypeTok{data =}\NormalTok{ df, }\DataTypeTok{family =} \KeywordTok{binomial}\NormalTok{(}\DataTypeTok{link=}\StringTok{'probit'}\NormalTok{))}
+\NormalTok{mcloglog  =}\StringTok{ }\KeywordTok{glm}\NormalTok{(gender }\OperatorTok{~}\StringTok{ }\NormalTok{avg_sickhours, }\DataTypeTok{data =}\NormalTok{ df, }\DataTypeTok{family =} \KeywordTok{binomial}\NormalTok{(}\DataTypeTok{link=}\StringTok{'cloglog'}\NormalTok{))}
+\NormalTok{mcauchit  =}\StringTok{ }\KeywordTok{glm}\NormalTok{(gender }\OperatorTok{~}\StringTok{ }\NormalTok{avg_sickhours, }\DataTypeTok{data =}\NormalTok{ df, }\DataTypeTok{family =} \KeywordTok{binomial}\NormalTok{(}\DataTypeTok{link=}\StringTok{'cauchit'}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\normalsize
+
+\tiny\includegraphics{Schmitt_Marvin_binary_response_files/figure-beamer/unnamed-chunk-27-1.pdf}
+\normalsize
+

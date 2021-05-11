@@ -288,6 +288,27 @@ legend("topright", legend=c("Female", "Male"),
        col=c("orange", "blue"), pch=16)
 ```
 
+## Issue: Linear Separability{#issue-linear-separability}
+
+- Linear separability of the data causes convergence issues.
+
+```{r echo=FALSE, include=FALSE}
+m = glm(gender ~ avg_sickhours + hairlength, data = df, family = binomial('logit'))
+```
+
+```{r echo=FALSE, out.height='50%', out.width='50%'}
+plot(df$avg_sickhours, df$hairlength, 
+     col=ifelse(df$gender=='male', 'blue', 'orange'),
+     xlab="Average sick hours", ylab="Hairlength"
+)
+legend("topright", legend=c("Female", "Male"),
+       col=c("orange", "blue"), pch=16)
+beta=m$coefficients
+abline(a=beta[1]/beta[2], b=-beta[3]/beta[2])
+``` 
+
+- Unstable estimates of the parameters and their standard errors.
+- Alternative: *Exact logistic regression*
 
 # Model Evaluation
 
@@ -398,28 +419,6 @@ N = nrow(df)
 (1-exp((m$dev-m$null)/N))/(1-exp(-m$null/N))
 ```
 
-
-## Issue: Linear Separability{#issue-linear-separability}
-
-- Linear separability of the data causes convergence issues.
-
-```{r echo=FALSE, include=FALSE}
-m = glm(gender ~ avg_sickhours + hairlength, data = df, family = binomial('logit'))
-```
-
-```{r echo=FALSE, out.height='50%', out.width='50%'}
-plot(df$avg_sickhours, df$hairlength, 
-     col=ifelse(df$gender=='male', 'blue', 'orange'),
-     xlab="Average sick hours", ylab="Hairlength"
-)
-legend("topright", legend=c("Female", "Male"),
-       col=c("orange", "blue"), pch=16)
-beta=m$coefficients
-abline(a=beta[1]/beta[2], b=-beta[3]/beta[2])
-``` 
-
-- Unstable estimates of the parameters and their standard errors.
-- Alternative: *Exact logistic regression*
 
 # Outlook
 

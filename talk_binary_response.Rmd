@@ -212,7 +212,7 @@ beta = m$coefficients %>% round(2)
 
 - $\eta= `r beta[1]` + `r beta[2]` x_1 + `r beta[3]` x_2$
 
-```{r, echo=FALSE, fig.height=6}
+```{r, echo=FALSE, fig.height=5}
 eta = predict(m, type = 'link')
 y_hat = predict(m, type = 'response')
 
@@ -322,12 +322,13 @@ abline(a=beta[1]/beta[2], b=-beta[3]/beta[2])
 
 ## Model Selection
 - Model selection aims at selecting a model $M_i$ from a set of candidate models $M_1,\ldots,M_m$.
-- The choice depends on the selection criterion and the 
+- The choice depends on the selection criterion and the search method.
 - For a model *M* with *k* parameters, the **Akaike-Information-Criterion** is defined as
 
 $$AIC_M=-2\log L_M+2k$$
+
 - `R` provides the `step()` function for stepwise selection from a set of models^[stepwise selection is not an ideal selection technique. Contemporary alternative: regularized methods].
-  - The `step()` function uses the $AIC$ as selection criterion for logistic regression models.
+- The `step()` function uses the $AIC$ as selection criterion for logistic regression models.
 
 ***
 
@@ -469,12 +470,6 @@ legend("topleft", legend=c("Female", "Male", "x_dot"),
   - 95\% CI: $[\exp(\hat{\beta}-1.96\hat{\sigma}_{\beta}), \exp(\hat{\beta}+1.96\hat{\sigma}_{\beta})]$
   - Invariant to the value of $\dot{x}$
   - Typically reported in clinical research papers.
-
-```{r}
-m = glm(gender~avg_sickhours, data=df, family=binomial('logit'))
-pred = predict(m,newdata=data.frame(avg_sickhours=10),se=T)
-c(exp(pred$fit-1.96*pred$se.fit), exp(pred$fit+1.96*pred$se.fit))
-```
 
 ## Other link functions{#other-link-functions}
 

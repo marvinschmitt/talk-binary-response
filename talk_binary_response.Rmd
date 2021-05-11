@@ -101,7 +101,7 @@ write.csv(data, "df.csv", row.names = FALSE)
 - Underlying linear model $\eta_i = \beta_0+\sum\limits_{j=1}^k\beta_jx_j$ that is plugged into the logistic function to obtain $P(Y=1)\in[0, 1]$ and $P(Y=1)+P(Y\neq1)=1$.
 
 ## Likelihood
-Likelihood $\mathcal{L}(\beta|x_1,\ldots,x_n)=\prod_{i=1}^n \mathcal{L}_i(\beta|x_i)$
+Likelihood $\mathcal{L}(\beta|x_1,\ldots,x_n)=\prod_{i=1}^n \mathcal{L}_i(\beta|x_i)\longleftarrow\text{Assumption: independent error terms}$
 $$\begin{aligned}
   \mathit{l}(\beta|x_1,\ldots,x_n)& =\sum_{i=1}^n l_i(\beta|x_i)\\
   &=\sum (1-y_i)\log(1-p(x_i;\beta)) + y_i\log p(x_i;\beta)\\
